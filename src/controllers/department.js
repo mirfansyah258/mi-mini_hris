@@ -1,7 +1,7 @@
 const { QueryTypes } = require("sequelize");
 const { db } = require("../config")
 const { myres } = require("../helpers")
-const { myPaginationQuery, myErrorHandling, myFileExt, isDataExist } = require("../helpers/common")
+const { myPaginationQuery, myErrorHandling, isDataExist } = require("../helpers/common")
 const { Department } = require("../models");
 
 module.exports = {
