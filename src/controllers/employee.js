@@ -2,7 +2,7 @@ const { QueryTypes, Op } = require("sequelize");
 const { v4: uuidv4 } = require('uuid');
 const { db } = require("../config")
 const { myres } = require("../helpers")
-const { myPaginationQuery, myErrorHandling, isDataExist, hashPassword, myFileUploader } = require("../helpers/common")
+const { myPaginationQuery, myErrorHandling, isDataExist, myFileUploader, hashPassword } = require("../helpers/common")
 const { Employee, Position } = require("../models");
 const response = {}
 
@@ -66,6 +66,53 @@ response.getById = async (req, res) => {
   } catch (error) {
     console.error('error', error);
     return myres(res, 400, 'error at getById', error)
+  }
+}
+
+response.update = async (req, res) => {
+  const { id } = req.params
+  const files = req.files
+  const update_param = req.body
+  const { emp_number, id_card_number, position_id } = update_param
+  delete update_param.password
+  update_param.profile_picture = ''
+
+  // check employee number availability
+  const check1 = await Employee.findOne({ where: { id: { [Op.ne]: id }, [Op.or]: [{ emp_number }, { id_card_number }], status: 'active' } })
+  if (check1) return myres(res, 400, 'error at update', `${check1.toJSON().emp_number == emp_number ? 'emp_number' : 'id_card_number'} already exists`)
+  // check position availability
+  const check2 = await isDataExist(Position, position_id, true)
+  if (check2 < 1) return myres(res, 404, 'error at update', `Position with id ${position_id} is not found`)
+  
+  if (files && files.profile_picture.size > 0) {
+    update_param.profile_picture = myFileUploader(files.profile_picture, `./src/assets/uploads/${id}/profile-picture`)
+  }
+
+  try {
+    const isExist = await Employee.count({ where: { id } })
+    if (isExist) {
+      const data = await Employee.update(update_param, { where: { id }, returning: true })
+      return myres(res, 200, 'Employee data changed successfully', data[1][0])
+    }
+    return myres(res, 404, `Data employee with id ${id} is not found`)
+  } catch (error) {
+    console.error('error employee.update', error);
+    return myres(res, 400, 'error at update', error)
+  }
+}
+
+response.delete = async (req, res) => {
+  const { id } = req.params
+  try {
+    const isExist = await Employee.count({ where: { id, status: 'active' } })
+    if (isExist) {
+      const data = await Employee.update({ status: 'deleted' }, { where: { id }, returning: true })
+      return myres(res, 200, 'Employee data deleted successfully', data[1][0])
+    }
+    return myres(res, 404, `Data employee with id ${id} is not found`)
+  } catch (error) {
+    console.error('error', error);
+    return myres(res, 400, 'error at delete', error)
   }
 }
 
