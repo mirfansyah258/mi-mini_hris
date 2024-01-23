@@ -1,4 +1,8 @@
+const fs = require('fs');
 const { Op } = require("sequelize")
+const bcrypt = require('bcrypt');
+const moment = require('moment');
+const saltRounds = 13;
 
 module.exports = {
   myPagination: (q, sqInc) => {
@@ -76,6 +80,7 @@ module.exports = {
     if (sort) {
       var split = sort.split(',')
 
+      soInc = soInc || sqInc
       if (soInc.includes(split[0])) {
         if (split.length > 1) {
           if (split[0] && split[1]) {
@@ -126,6 +131,16 @@ module.exports = {
             return message[1]
           })
         }
+      } else if (name == 'SequelizeDatabaseError') {
+        if (original) {
+          switch (original.code) {
+            case '22001':
+              return 'value too long'
+          
+            default:
+              break;
+          }
+        }
       } else if (['SequelizeUniqueConstraintError', 'SequelizeForeignKeyConstraintError'].includes(name)) {
         return original.detail
       }
@@ -140,4 +155,37 @@ module.exports = {
     }
   },
   myFileExt: (filename) => /(?:\.([^.]+))?$/.exec(filename)[1],
+  myFileUploader: (file, dir) => {
+    const ext = /(?:\.([^.]+))?$/.exec(file.name)[1]
+    profile_picture = `${moment().valueOf()}.${ext}`
+
+    // const dir = `./src/assets/uploads/${id}/profile-picture`
+    fs.mkdirSync(dir, { recursive: true })
+    const path = `${dir}/${profile_picture}`;
+
+    // Move the file to the specified destination
+    file.mv(path, async (err) => {
+      if (err) {
+        return myres(res, 400, 'error while moving file', err)
+      }
+    });
+    return profile_picture
+  },
+  hashPassword: async (password) => {
+    try {
+      const salt = await bcrypt.genSalt(saltRounds);
+      const hashedPassword = await bcrypt.hash(password, salt);
+      return hashedPassword;
+    } catch (error) {
+      throw error;
+    }
+  },
+  comparePassword: async (password, hashedPassword) => {
+    try {
+      const match = await bcrypt.compare(password, hashedPassword);
+      return match;
+    } catch (error) {
+      throw error;
+    }
+  }
 }
